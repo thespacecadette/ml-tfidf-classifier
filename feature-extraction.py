@@ -4,42 +4,19 @@ from sklearn.feature_extraction.text import TfidfTransformer
 
 import re
 import os
-import numpy as np
-
-# Subset test data
-path = 'test/'
-files = os.listdir(path)
 
 # Global variables
-resultBow = list()
 wordlist = list()
 reviews = list()
-ratings = list()
+tfidf = list()
+features = list()
+labels = list()
 
-# Export BoW as .feat files
-def formatReviewsMatrix(reviewsCount, BoW, reviews):
-    matrix = list()
-    reviewIndex = 0
-    
-    for reviewVector in reviewsCount:
-        row = ""
-        
-        rowTail = ""
-        colIndex = 0
-        for tf in reviewVector:
-            rowTail = rowTail + " " + str(colIndex) + ":" + str(tf) + " "
-            colIndex = colIndex + 1
-        
-        row = row + ratings[reviewIndex] + " " + rowTail + ""
-        reviewIndex = reviewIndex + 1
-        matrix.append(row)
-        
-    return matrix
-
-def addRating(fileName):
+def setRating(fileName):
     fileNameArray = fileName.split("_")
     rating = fileNameArray[1][:1]
-    ratings.append(rating)
+    
+    return rating
     
 def getTFIDFFromWord(word, reviews, BoW):
     tfidfIndex = 0
@@ -47,49 +24,112 @@ def getTFIDFFromWord(word, reviews, BoW):
         if(w == word):
             return reviews[tfidfIndex]
 
-print("____________________________________________________")
-print("______________   TF-IDF Reviews  ___________________")
-print("____________________________________________________")
+# Generic export to file
+def save(nameOfFile, path, array):
+    fullPath = path + nameOfFile
+    f = open(fullPath, "a")
 
-# Get vocabulary of words
-for f in files:
-	file = open((path + f), "r", encoding="windows-1252")
-	Review = file.readlines()
+    for tf in array:
+        print("saving ... ", tf)
+        f.write(str(tf) + "\n")
+    f.close()
 
-	# Get rating from filename
-	addRating(file.name)
+def convertToClassLabel(fileName):
+   	rating = setRating(fileName)
 
-	for line in Review:
-		tokenise = re.split("[^a-zA-Z0-9']", line)
-		#print(tokenise)
-		reviews.append(line)
-	
-		for word in tokenise:
-			if word.lower() not in wordlist:
-				wordlist.append(word.lower())
+   	if int(rating) > 5:
+           return 1
+    
+   	return 0
 
-vectorizer = CountVectorizer(vocabulary=wordlist, stop_words="english", encoding="windows-1252", analyzer="word")
-reviewsCount = vectorizer.fit_transform(reviews).toarray()
-BoW = vectorizer.get_feature_names();
-   
-transformer = TfidfTransformer(smooth_idf=False)
-tfidf = transformer.fit_transform(reviewsCount).toarray()
+def getWordList(path, files): 
+    # Get vocabulary of words
+    for f in files:
+    	file = open((path + f), "r", errors='ignore')
+    	Review = file.readlines()
+        
+    	for line in Review:
+    		tokenise = re.split("[^a-zA-Z0-9']", line)
+    		#print(tokenise)
+    		reviews.append(line)
+            	
+    		for word in tokenise:
+    			if word.lower() not in wordlist:
+    				wordlist.append(word.lower())
+    				convertedLabel = convertToClassLabel(file.name)
+    				labels.append(convertedLabel)
 
-outputMatrix = formatReviewsMatrix(tfidf, BoW, reviews)
+    return wordlist
 
-reviewIdx = 0
-for review in reviews:
-   print("____________________________________________________")
-   print("\n Review: \n" + outputMatrix[reviewIdx] + "\n")
-   print("Review N length = ", vectorizer.get_feature_names().__len__())
-   reviewIdx = reviewIdx + 1
+def performTFIDF(vectorizer):
+    reviewsCount = vectorizer.fit_transform(reviews).toarray()
+       
+    transformer = TfidfTransformer(smooth_idf=False)
+    return transformer.fit_transform(reviewsCount).toarray()
 
-print("____________________________________________________")
-print("____________________________________________________")
-print("SUMMARY: TF-IDF")
-print("wordlist N length = ", wordlist.__len__(),"\n\n")
-print("TF-IDF of BoW \n", tfidf, "\n \n")
-print("BoW = ", BoW, "\n \n")
-print("Output Matrix \n", outputMatrix)
-print("____________________________________________________")
-print("____________________________________________________")
+def summary(feature_names):
+    print("____________________________________________________")
+    print("SUMMARY: TF-IDF")
+    print("words length N = ", feature_names.__len__(),"\n\n")
+    print("TF-IDF of BoW \n", tfidf, "\n \n")
+    print("Features = ", feature_names, "\n \n")
+    print("____________________________________________________")
+
+
+def mergeFiles(mergeFileOne, mergeFileTwo, fileToMergeTo):
+    data = data2 = "" 
+  
+    # Reading data from file1     
+    with open(mergeFileOne) as fp: 
+        data = fp.read() 
+      
+    # Reading data from file2 
+    with open(mergeFileTwo) as fp: 
+        data2 = fp.read() 
+      
+    # Merging 2 files 
+    # To add the data of file2 
+    # from next line 
+    data += "\n"
+    data += data2 
+      
+    with open (fileToMergeTo, 'w') as fp: 
+        fp.write(data) 
+
+    
+def generateData(pathToData, fileToSaveTo, directoryToSaveTo, type):    
+    # Subset test data
+    files = os.listdir(pathToData)
+    
+    vocabulary = getWordList(pathToData, files)
+    
+    vectorizer = CountVectorizer(vocabulary=vocabulary, stop_words="english", encoding="windows-1252", analyzer="word", lowercase=True)
+    tfidf = performTFIDF(vectorizer)
+    features = vectorizer.get_feature_names();
+
+    # Write tfidf matrix to file
+    save(fileToSaveTo, directoryToSaveTo, tfidf)
+    
+    # Write BoW
+    save(type + "-words.vocab", directoryToSaveTo, features)
+    
+    # Save labels
+    save(type + "-labels.txt", directoryToSaveTo, labels)
+
+    print("Lengths: ", labels.__len__(), features.__len__())
+
+    summary(vectorizer.get_feature_names())
+
+
+# Preprocessing
+#generateData("aclImdb/train/pos/", "train-positive.feat", "train/", "pos")
+#generateData("aclImdb/train/neg/", "train-negative.feat", "train/", "neg")
+#generateData("aclImdb/test/pos/", "test-positive.feat", "test/", "pos")
+#generateData("aclImdb/test/neg/", "test-negative.feat", "test/", "neg")
+mergeFiles("train/train-negative.feat", "train/train-positive.feat", "train/train.feat")
+mergeFiles("train/neg-words.vocab", "train/pos-words.vocab", "train/words.vocab")
+mergeFiles("test/test-negative.feat", "test/test-positive.feat", "test/test.feat")
+mergeFiles("test/neg-words.vocab", "test/pos-words.vocab", "test/words.vocab")
+mergeFiles("train/neg-labels.txt", "train/pos-labels.txt", "train/labels.txt")
+mergeFiles("test/neg-labels.txt", "test/pos-labels.txt", "test/labels.txt")
+
