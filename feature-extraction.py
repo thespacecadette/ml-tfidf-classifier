@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+import matplotlib.pyplot as plt
 
 import re
 import os
@@ -56,6 +57,7 @@ def getWordList(path, files):
     		for word in tokenise:
     			if word.lower() not in wordlist:
     				wordlist.append(word.lower())
+                
     				convertedLabel = convertToClassLabel(file.name)
     				labels.append(convertedLabel)
 
